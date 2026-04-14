@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -86,10 +89,19 @@ public partial class MainWindow : Window
             Mode = DisplayMode.Percent;
 
             // Setup warnings
-            var values = WarningInput.Text.Split(',')
-                .Select(s => double.TryParse(s.Trim(), out var val) ? val : -1)
+            var values = Regex.Split(WarningInput.Text, @"[^0-9.,]+")
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s =>
+                {
+                    var sanitized = s.Trim().Replace(',', '.');
+
+                    return double.TryParse(sanitized, CultureInfo.InvariantCulture, out var val)
+                        ? val
+                        : -1;
+                })
                 .Distinct()
-                .Where(val => val > 0);
+                .Where(val => val > 0)
+                .ToArray();
 
             // TK : could be better but will work for now
             const int ABSOLUTE = 0;
@@ -184,6 +196,9 @@ public partial class MainWindow : Window
         }
     }
 
+    const double warningWidth = 300;
+    const double warningHeight = 200;
+    const double warningMargin = 20;
     async void ShowWarningPopup()
     {
         StartTimerScreen.Visibility = Visibility.Collapsed;
@@ -191,22 +206,15 @@ public partial class MainWindow : Window
         TimeIsUpScreen.Visibility = Visibility.Collapsed;
         SizeToContent = SizeToContent.Height;
 
-        // 1. Prepare Window for Popup
         WindowState = WindowState.Normal;
         Topmost = true;
 
-        // 2. Set Popup Size
-        Width = 300;
-        Height = 200;
+        Width = warningWidth;
+        Height = warningHeight;
 
-        // 3. Position at Top-Right
-        var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(this);
-        var windowHandle = windowInteropHelper.Handle;
-
-        // Find the screen associated with that handle
-        var screen = System.Windows.Forms.Screen.FromHandle(windowHandle);
-        Left = screen.WorkingArea.Left + screen.WorkingArea.Width - Width - 20;
-        Top = screen.WorkingArea.Top + 20;
+        var screen = GetActiveScreenInfo();
+        Left = screen.WorkingArea.Left + screen.WorkingArea.Width - Width - warningMargin;
+        Top = screen.WorkingArea.Top + warningMargin;
 
         Mode = DisplayMode.Time;
         await Task.Delay(warningDuration);
@@ -227,6 +235,10 @@ public partial class MainWindow : Window
         TimeIsUpScreen.Visibility = Visibility.Visible;
         SizeToContent = SizeToContent.Manual;
 
+        var screen = GetActiveScreenInfo();
+        Left = screen.WorkingArea.Left;
+        Top = screen.WorkingArea.Top;
+
         WindowState = WindowState.Maximized;
         Topmost = true;
 
@@ -243,5 +255,13 @@ public partial class MainWindow : Window
         }
 
         Properties.Settings.Default.Save();
+    }
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+    public System.Windows.Forms.Screen GetActiveScreenInfo()
+    {
+        var activeWindowHandle = GetForegroundWindow();
+        return System.Windows.Forms.Screen.FromHandle(activeWindowHandle);
     }
 }
