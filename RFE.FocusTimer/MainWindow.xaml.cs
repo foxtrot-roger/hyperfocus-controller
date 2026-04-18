@@ -32,26 +32,25 @@ public partial class MainWindow : Window
     List<TimeSpan> warnings = new();
     TimeSpan warningDuration = TimeSpan.FromSeconds(1);
 
+
     public MainWindow()
     {
         InitializeComponent();
-        var last = Stopwatch.GetTimestamp();
-        timer.Tick += (s, e) =>
-        {
-            var now = Stopwatch.GetTimestamp();
-            var delta = Stopwatch.GetElapsedTime(last, now);
-            last = now;
-
-            Update(delta);
-        };
+        lastUpdateTime = Stopwatch.GetTimestamp();
+        timer.Tick += (s, e) => Update();
 
         StartTimerScreen.Visibility = Visibility.Visible;
         WarningScreen.Visibility = Visibility.Collapsed;
         TimeIsUpScreen.Visibility = Visibility.Collapsed;
     }
 
-    void Update(TimeSpan delta)
+    long lastUpdateTime;
+    void Update()
     {
+        var now = Stopwatch.GetTimestamp();
+        var delta = Stopwatch.GetElapsedTime(lastUpdateTime, now);
+        lastUpdateTime = now;
+
         remainingTime -= delta;
 
         if (warnings.Any(x => x >= remainingTime))
@@ -82,11 +81,6 @@ public partial class MainWindow : Window
             };
             if (convertDuration is null)
                 return;
-
-            remainingTime = convertDuration(delay);
-            startDuration = remainingTime;
-
-            Mode = DisplayMode.Percent;
 
             // Setup warnings
             var values = Regex.Split(WarningInput.Text, @"[^0-9.,]+")
@@ -125,6 +119,11 @@ public partial class MainWindow : Window
 
             warnings = validReminders!;
 
+            lastUpdateTime = Stopwatch.GetTimestamp();
+            remainingTime = convertDuration(delay);
+            startDuration = remainingTime;
+            Mode = DisplayMode.Percent;
+
             initialWidth = Width;
             initialHeight = Height;
             initialLeft = Left;
@@ -144,6 +143,7 @@ public partial class MainWindow : Window
     {
         timer.IsEnabled = !timer.IsEnabled;
         PauseBtn.Content = timer.IsEnabled ? "PAUSE" : "RESUME";
+        lastUpdateTime = Stopwatch.GetTimestamp();
     }
     void ResetBtn_Click(object sender, RoutedEventArgs e)
     {
