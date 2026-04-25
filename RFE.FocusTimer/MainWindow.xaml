@@ -43,7 +43,7 @@
 
         <Style x:Key="ControlBtn" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
             <Setter Property="Width" Value="100"/>
-            <Setter Property="Margin" Value="5,0"/>
+
         </Style>
 
         <Style TargetType="TextBox">
@@ -66,17 +66,22 @@
             <Setter Property="Background" Value="#E5E5E5"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                    <Setter Property="Foreground" Value="#888888"/>
+                    <Setter Property="Background" Value="#CCCCCC"/>
+                </DataTrigger>
+
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, 
                                      Path=Value, 
                                      Converter={StaticResource LessThanConverter}, 
-                                     ConverterParameter=25}" 
+                                     ConverterParameter=30}" 
                              Value="True">
                     <Setter Property="Foreground" Value="#FF8C00"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, 
                                   Path=Value, 
                                   Converter={StaticResource LessThanConverter}, 
-                                  ConverterParameter=5}" 
+                                  ConverterParameter=10}" 
                           Value="True">
                     <Setter Property="Foreground" Value="#FF0033"/>
                 </DataTrigger>
@@ -85,7 +90,7 @@
     </Window.Resources>
 
     <Grid Margin="15">
-        <Grid x:Name="StartTimerScreen" Visibility="Visible">
+        <Grid x:Name="StartTimerScreen" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -95,7 +100,7 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="0,0,0,15">
-                <TextBlock Style="{StaticResource ModernText}" Text="Header Message" FontSize="11" Opacity="0.6" Margin="0,0,0,4"/>
+                <TextBlock Style="{StaticResource ModernText}" Text="Task" FontSize="11" Opacity="0.6" Margin="0,0,0,4"/>
                 <TextBox x:Name="MessageInput" FontSize="14" Height="36" HorizontalContentAlignment="Left" Padding="10,0"
                  Text="{Binding Source={x:Static properties:Settings.Default}, Path=LastMessage, Mode=TwoWay}"/>
             </StackPanel>
@@ -144,49 +149,69 @@
                 </StackPanel>
             </Grid>
 
-            <Button x:Name="StartBtn" Grid.Row="4" Content="START" Height="45" FontSize="14" Click="StartBtn_Click"/>
+            <Grid Grid.Row="4">
+                <Button x:Name="StartBtn" Content="START" Height="45" FontSize="14" Click="StartBtn_Click"/>
+            </Grid>
         </Grid>
 
-        <Grid x:Name="WarningScreen" Visibility="Collapsed">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="120"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <Viewbox Grid.Row="0" Margin="10,0">
+        <StackPanel x:Name="WarningScreen" Visibility="Visible">
+            <Viewbox>
                 <TextBlock x:Name="RemainingTime" 
-                       Text="00:00" 
+                       Text="00:00"
                        FontFamily="Consolas" 
                        Foreground="#0078D4" 
                        HorizontalAlignment="Center" 
                        VerticalAlignment="Center"/>
             </Viewbox>
 
-            <ProgressBar x:Name="TimerProgressBar" 
-                     Grid.Row="1" 
-                     Margin="20,0,20,20" 
-                     Minimum="0" 
-                     Maximum="100"
-                     Value="50"
-                     Style="{StaticResource ModernProgressBar}"/>
+            <TextBlock Style="{StaticResource ModernText}" Text="{Binding Text, ElementName=MessageInput}"/>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                <Button x:Name="PauseBtn" Content="PAUSE" Style="{StaticResource ControlBtn}" Background="#666666" Click="PauseBtn_Click"/>
-                <Button x:Name="StopBtn" Content="STOP" Style="{StaticResource ControlBtn}" Background="#D13438" Click="ResetBtn_Click"/>
-            </StackPanel>
-        </Grid>
+            <Border Height="10"/>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <ProgressBar Grid.Column="2" x:Name="TimerProgressBar" 
+                         Grid.Row="1" 
+                         Minimum="0" 
+                         Maximum="100"
+                         Value="50"
+                         Style="{StaticResource ModernProgressBar}"/>
+
+                <Border x:Name="PulseBorder" Background="#107C10">
+                    <Border x:Name="PulseCenter" Margin="6">
+                        <Border.Effect>
+                            <BlurEffect Radius="2"/>
+                        </Border.Effect>
+                    </Border>
+                </Border>
+            </Grid>
+
+            <Border Height="10"/>
+
+            <Grid>
+                <Button x:Name="PauseBtn" HorizontalAlignment="Left" Content="PAUSE" Style="{StaticResource ControlBtn}" Background="#666666" Click="PauseBtn_Click"/>
+                <Button x:Name="StopBtn" HorizontalAlignment="Right" Content="STOP" Style="{StaticResource ControlBtn}" Background="#D13438" Click="ResetBtn_Click"/>
+            </Grid>
+        </StackPanel>
 
         <Grid x:Name="TimeIsUpScreen" Visibility="Collapsed">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
 
             <StackPanel VerticalAlignment="Center">
                 <Viewbox Grid.Row="0" Margin="10,0" MaxWidth="400">
-                    <TextBlock x:Name="DisplayArea" Text="DONE" Foreground="#E81123" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="DisplayArea" Text="Time's up!" Foreground="#E81123" FontWeight="Bold" HorizontalAlignment="Center"/>
                 </Viewbox>
+
+                <Border Height="10"/>
+
+                <TextBlock Style="{StaticResource ModernText}" HorizontalAlignment="Center" Text="{Binding Text, ElementName=MessageInput}"/>
+
+                <Border Height="10"/>
+
                 <Button x:Name="ResetBtn" Grid.Row="1" MaxWidth="100" Content="New Timer" Click="ResetBtn_Click"/>
             </StackPanel>
 

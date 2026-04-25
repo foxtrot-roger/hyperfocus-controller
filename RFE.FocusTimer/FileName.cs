@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 namespace RFE.FocusTimer;
 
-public class MyFocusTimer(IStopwatch countdown, IStopwatch reminder)
+public class MyFocusTimer(IStopwatch countdown)
 {
     TimeSpan reminderDuration;
     List<TimeSpan> reminders = [];
@@ -32,44 +31,61 @@ public class MyFocusTimer(IStopwatch countdown, IStopwatch reminder)
     public bool CanStart() => State == TimerState.Stopped;
     public void Start(TimerConfig config)
     {
-        countdown.Reset();
-        countdown.Start();
+        countdown.Restart();
 
+        reminderDuration = config.ReminderDuration;
         TotalDuration = config.TotalDuration;
         reminders = config.Reminders
             .Distinct()
             .ToList();
 
-        Remaining = TotalDuration - countdown.Ellapsed;
+        Remaining = TotalDuration - countdown.Elapsed;
 
-        State = TimerState.Running;
+        State = TimerState.RunningHidden;
     }
 
-    public bool CanPause() => State == TimerState.Running || State == TimerState.Reminder;
+    public bool CanPeek() => State == TimerState.RunningHidden;
+    public void Peek()
+    {
+        State = TimerState.Peeking;
+    }
+
+    public bool CanHide() => State == TimerState.Peeking;
+    public void Hide()
+    {
+        State = TimerState.RunningHidden;
+    }
+
+    public bool CanPause() => State == TimerState.Peeking || State == TimerState.Reminder;
     public void Pause()
     {
         countdown.Stop();
 
-        if (State == TimerState.Running)
-            State = TimerState.Paused;
+        if (State == TimerState.Peeking)
+            State = TimerState.PeekingPaused;
 
         else if (State == TimerState.Reminder)
-            State = TimerState.PausedReminder;
+            State = TimerState.ReminderPaused;
     }
 
-    public bool CanResume() => State == TimerState.Paused || State == TimerState.PausedReminder;
+    public bool CanResume() => State == TimerState.PeekingPaused || State == TimerState.ReminderPaused;
     public void Resume()
     {
-        countdown.Start();
+        countdown.Resume();
 
-        if (State == TimerState.Paused)
-            State = TimerState.Running;
+        if (State == TimerState.PeekingPaused)
+            State = TimerState.Peeking;
 
-        else if (State == TimerState.PausedReminder)
+        else if (State == TimerState.ReminderPaused)
             State = TimerState.Reminder;
     }
 
-    public bool CanStop() => State != TimerState.Stopped;
+    public bool CanStop()
+        => State == TimerState.Peeking
+        || State == TimerState.PeekingPaused
+        || State == TimerState.Reminder
+        || State == TimerState.ReminderPaused
+        || State == TimerState.Interrupting;
     public void Stop()
     {
         countdown.Stop();
@@ -77,59 +93,30 @@ public class MyFocusTimer(IStopwatch countdown, IStopwatch reminder)
         State = TimerState.Stopped;
     }
 
-    public bool CanUpdate() => State != TimerState.Stopped;
+    public bool CanUpdate() => State switch
+    {
+        TimerState.Reminder
+        or TimerState.RunningHidden
+        or TimerState.Peeking
+        => true,
+
+        _ => false,
+    };
     public void Update()
     {
-        Remaining = TotalDuration - countdown.Ellapsed;
+        Remaining = TotalDuration - countdown.Elapsed;
 
         if (Remaining <= TimeSpan.Zero)
         {
             countdown.Stop();
-
             State = TimerState.Interrupting;
         }
-        else if (reminders.Any(x => x >= Remaining && x <= Remaining + reminderDuration))
+        else if (State != TimerState.Peeking)
         {
-            reminder.Reset();
-            reminder.Start();
-
-            State = TimerState.Reminder;
-        }
-        else
-        {
-            reminder.Stop();
-
-            State = TimerState.Running;
+            if (reminders.Any(x => x >= Remaining && x <= Remaining + reminderDuration))
+                State = TimerState.Reminder;
+            else
+                State = TimerState.RunningHidden;
         }
     }
-}
-
-public enum TimerState
-{
-    Stopped,
-    Running,
-    Paused,
-    Reminder,
-    PausedReminder,
-    Interrupting
-}
-
-public record TimerConfig(TimeSpan TotalDuration, TimeSpan ReminderDuration, IEnumerable<TimeSpan> Reminders);
-
-public interface IStopwatch
-{
-    void Start();
-    void Stop();
-    void Reset();
-    TimeSpan Ellapsed { get; }
-}
-public class MyStopwatch : IStopwatch
-{
-    readonly Stopwatch stopwatch = new();
-
-    public TimeSpan Ellapsed => stopwatch.Elapsed;
-
-    public void Reset() => stopwatch.Reset();
-    public void Start() => stopwatch.Start();
-    public void Stop() => stopwatch.Stop();
 }
